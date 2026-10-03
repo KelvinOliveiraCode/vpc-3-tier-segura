@@ -1,0 +1,120 @@
+# Arquitetura da VPC ficticia do laboratorio.
+#
+# CONTEUDO FICTICIO. Nenhuma nuvem real e acessada por este projeto, e nenhum
+# endereco aqui existe. O bloco 203.0.113.0/24 e o bloco de documentacao da
+# RFC 5737, reservado justamente para aparecer em exemplo sem existir.
+#
+# A propriedade que o desenho quer tornar verdadeira: **o banco nao aceita
+# conexao vinda da internet**. Todo o resto existe para que essa frase seja
+# consequencia das regras, e nao desejo.
+
+vpc: LAB-VPC-FICT
+
+# --- sub-redes -----------------------------------------------------------
+sub_redes:
+  # DMZ: o que a internet alcanca. Publica de proposito, e o unico lugar da
+  # VPC onde isso acontece.
+  - nome: dmz-publica
+    cidr: 203.0.113.0/24
+    camada: dmz
+    visibilidade: publica
+
+  # Aplicacao: os servidores de aplicacao. Privada, e o caminho da DMZ para
+  # aqui e a unica porta de entrada do trafego interno.
+  - nome: app-privada
+    cidr: 10.20.0.0/24
+    camada: aplicacao
+    visibilidade: privada
+
+  # Dados: o banco. Privada e sem rota de retorno para a internet.
+  - nome: dados-privada
+    cidr: 10.30.0.0/24
+    camada: dados
+    visibilidade: privada
+
+  # Gestao: onde mora o bastion, o unico no que aceita conexao da internet.
+  - nome: gestao-privada
+    cidr: 10.10.0.0/24
+    camada: gerencia
+    visibilidade: privada
+
+  # Parceiro: uma segunda faixa publica, para um terceiro que tem acesso
+  #publico mas NAO tem rota de saida para lugar nenhum. E o caso que torna a
+  # etapa 'sem-rota' alcancavel: a DMZ tem rota padrao, entao da la nenhum
+  # pacote fica sem rota, e sem esta faixa o estagio seria codigo morto.
+  # 198.51.100.0/24 e o TEST-NET-2 da RFC 5737, tambem reservado a exemplo.
+  - nome: parceiro-publica
+    cidr: 198.51.100.0/24
+    camada: dmz
+    visibilidade: publica
+
+# --- nos -----------------------------------------------------------------
+nos:
+  # DMZ
+  - nome: balancer-web
+    endereco: 203.0.113.10
+    sub_rede: dmz-publica
+    papel: balancer
+  - nome: web-publico-01
+    endereco: 203.0.113.11
+    sub_rede: dmz-publica
+    papel: web
+  - nome: web-publico-02
+    endereco: 203.0.113.12
+    sub_rede: dmz-publica
+    papel: web
+
+  # aplicacao
+  - nome: app-01
+    endereco: 10.20.0.11
+    sub_rede: app-privada
+    papel: app
+  - nome: app-02
+    endereco: 10.20.0.12
+    sub_rede: app-privada
+    papel: app
+
+  # dados
+  - nome: banco-01
+    endereco: 10.30.0.11
+    sub_rede: dados-privada
+    papel: banco
+
+  # gerencia
+  - nome: bastion
+    endereco: 10.10.0.5
+    sub_rede: gestao-privada
+    papel: bastion
+
+  # parceiro: alcance da internet, mas sem rota de saida
+  - nome: web-parceiro
+    endereco: 198.51.100.10
+    sub_rede: parceiro-publica
+    papel: web
+
+# --- rotas ---------------------------------------------------------------
+# A DMZ e a unica com rota de retorno para a internet. E por isso que um
+# pacote da internet que chegue a 10.30.0.11 nao tem para onde voltar: ele
+# nao foi a lugar nenhum, e por isso o firewall precisa negar.
+rotas:
+  - origem: dmz-publica
+    destino: 0.0.0.0/0
+    proximo: 203.0.113.1
+  - origem: app-privada
+    destino: 10.30.0.0/24
+    proximo: 10.20.0.1
+  - origem: app-privada
+    destino: 203.0.113.0/24
+    proximo: 10.10.0.5
+  - origem: dmz-publica
+    destino: 10.20.0.0/24
+    proximo: 10.20.0.1
+  - origem: gestao-privada
+    destino: 203.0.113.0/24
+    proximo: 10.10.0.1
+  # A faixa do parceiro NAO tem rota de saida. E proposito: e a forma de um
+  # pacote morrer por topologia, e nao por politica - e o motor precisa saber
+  # reportar as duas coisas separadamente.
+  - origem: parceiro-publica
+    destino: 198.51.100.0/24
+    proximo: 198.51.100.1

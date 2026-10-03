@@ -1,0 +1,13 @@
+# Dependencias de execucao.
+#
+# PyYAML e a unica dependencia externa, e e usada apenas para ler a
+# arquitetura, as regras e os cenarios em YAML. O resto e biblioteca padrao:
+# ipaddress faz a aritmetica de endereco e dataclasses carrega o modelo. Nao
+# ha biblioteca de nuvem, de SSH nem de SDK de equipamento - porque este
+# projeto nao fala com nuvem nenhuma.
+
+PyYAML>=6.0
+
+# Dependencias de desenvolvimento.
+pytest>=7.4
+pytest-cov>=4.1

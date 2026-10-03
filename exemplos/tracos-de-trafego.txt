@@ -1,0 +1,228 @@
+# Tracos de trafego do vpcsim.
+#
+# Este arquivo e GERADO por tools/gerar_exemplo.py, a partir da saida
+# real do comando `python -m vpcsim tracar`. Nao editar a mao.
+#
+# Para reproduzir localmente:
+#
+#   python -m vpcsim tracar dados/cenarios-teste.yaml
+#
+
+==============================================================================
+TRACOS DE TRAFEGO - 20 cenario(s)
+arquitetura: LAB-VPC-FICT   regras: 17
+==============================================================================
+
+[internet-para-banco] 203.0.113.50 -> 10.30.0.11
+  origem: origem anonima: 203.0.113.50
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa bloqueado: A regra que o desenho inteiro existe para sustentar: o banco nao aceita conexao da internet. Ela e explicita mesmo sabendo que a camada de dados nao tem rota de retorno para a internet, porque uma protecao que depende de um detalhe de roteamento e uma protecao que se quebra quando alguem acrescenta uma rota.
+
+  regra: negar entrada 203.0.113.0/24 -> 10.30.0.11/32:5432/tcp [novo] #internet-entra-no-banco
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: regra de firewall: internet nao permite conexao direta para o banco, sem volta para a internet
+
+[bastion-para-banco] 10.10.0.5 -> 10.30.0.11
+  origem: bastion, 10.10.0.5, sub-rede gestao-privada
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: nenhuma rota alcanca 10.30.0.11; e aqui que o pacote morre
+  avaliacao: etapa permitido: O bastion fala com o banco. E o caminho de administracao: quem entra no bastion chega ao banco sem que o banco precise aceitar a internet.
+
+  regra: permitir entrada 10.10.0.5/32 -> 10.30.0.11/32:5432/tcp [novo] #bastion-entra-no-banco
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: o bastion e a unica maquina da gestao que pode acessar o banco
+
+[app-para-banco] 10.20.0.11 -> 10.30.0.11
+  origem: app-01, 10.20.0.11, sub-rede app-privada
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota app-privada -> 10.30.0.0/24, proximo salto 10.20.0.1
+  avaliacao: etapa permitido: A camada de aplicacao fala com a camada de dados, e so nisto. E o menor privilegio na pratica: o banco aceita a aplicacao e recusa todo o resto.
+
+  regra: permitir entrada 10.20.0.0/24 -> 10.30.0.11/32:5432/tcp [novo] #aplicacao-entra-no-banco
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: o app e permitido para conectar no banco por 5432
+
+[internet-para-web] 203.0.113.50 -> 203.0.113.11
+  origem: origem anonima: 203.0.113.50
+  destino: web-publico-01, 203.0.113.11, sub-rede dmz-publica
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa permitido: O servidor web e alcancavel. Ele fica na DMZ justamente por isso: e o unico tipo de servidor que a internet pode tocar sem passar por outro servidor, e por isso ele nao guarda dado.
+
+  regra: permitir entrada 203.0.113.0/24 -> 203.0.113.11/32:443/tcp [novo] #internet-entra-no-web-publico
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: o web e a unica maquina da dmz que pode aceitar conexoes da internet
+
+[web-para-banco] 203.0.113.11 -> 10.30.0.11
+  origem: web-publico-01, 203.0.113.11, sub-rede dmz-publica
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa sem-regra: nenhuma regra de saida casa com 203.0.113.11 para 10.30.0.11:5432 em dados-privada. rota de dmz-publica para 0.0.0.0/0 via 203.0.113.1; O motor nega por padrao: regra esquecida vira acesso negado, que aparece, e nao acesso concedido
+  regra: nenhuma regra casou
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: firewall bloqueia trafego da dmz para a rede de dados
+
+[internet-para-web-porta-8080] 203.0.113.50 -> 203.0.113.11
+  origem: origem anonima: 203.0.113.50
+  destino: web-publico-01, 203.0.113.11, sub-rede dmz-publica
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa bloqueado: Negar o que nenhuma regra permitiu. O motor ja nega quando nada casa; esta regra deixa o limite visivel no arquivo, para que ninguem tenha de inferir o padrao do silencio, e para que um `permitir` acrescentado depois desta linha nunca vire o unico caminho.
+
+  regra: negar entrada 0.0.0.0/0 -> 0.0.0.0/0:qualquer/qualquer [novo] #nega-o-que-nada-permite
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: sem regra para a porta 8080, web bloqueia a conexao
+
+[UDP-da-app-para-banco] 10.20.0.11 -> 10.30.0.11
+  origem: app-01, 10.20.0.11, sub-rede app-privada
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota app-privada -> 10.30.0.0/24, proximo salto 10.20.0.1
+  avaliacao: etapa bloqueado: Negar o que nenhuma regra permitiu. O motor ja nega quando nada casa; esta regra deixa o limite visivel no arquivo, para que ninguem tenha de inferir o padrao do silencio, e para que um `permitir` acrescentado depois desta linha nunca vire o unico caminho.
+
+  regra: negar entrada 0.0.0.0/0 -> 0.0.0.0/0:qualquer/qualquer [novo] #nega-o-que-nada-permite
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: sem regra de udp para o banco, o firewall nega a conexao
+
+[saida-do-banco] 10.30.0.11 -> 203.0.113.10
+  origem: banco-01, 10.30.0.11, sub-rede dados-privada
+  destino: balancer-web, 203.0.113.10, sub-rede dmz-publica
+  rota: nenhuma rota alcanca 203.0.113.10; e aqui que o pacote morre
+  avaliacao: etapa bloqueado: A camada de dados nao fala com a internet, em porta nenhuma. Esta e a protecao que impede exfiltracao pelo banco, e e a segunda camada do desenho: mesmo com uma regra de entrada errada, o dado nao sai.
+
+  regra: negar saida 10.30.0.0/24 -> 203.0.113.0/24:qualquer/qualquer [novo] #dados-sai-para-internet
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: trafego de saida da rede de dados para a dmz e bloqueado por padrao
+
+[trafico-dentro-da-dmz] 203.0.113.10 -> 203.0.113.11
+  origem: balancer-web, 203.0.113.10, sub-rede dmz-publica
+  destino: web-publico-01, 203.0.113.11, sub-rede dmz-publica
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa permitido: O balanceador distribui para os servidores web que estao atras dele. Sem esta regra o balanceador existe mas nao repassa nada, e um balanceador que nao repassa e um servidor web com nome mais caro.
+
+  regra: permitir saida 203.0.113.10/32 -> 203.0.113.0/24:80/tcp [novo] #balanceador-fala-com-o-backend
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: trafego na mesma sub-rede da dmz nao e bloqueado
+
+[conexao-relacionada-do-banco-para-a-app] 10.30.0.11 -> 10.20.0.11
+  origem: banco-01, 10.30.0.11, sub-rede dados-privada
+  destino: app-01, 10.20.0.11, sub-rede app-privada
+  rota: nenhuma rota alcanca 10.20.0.11; e aqui que o pacote morre
+  avaliacao: etapa relacionado: trafego relacionado de 10.30.0.11 para 10.20.0.11: resposta de conexao ja autorizada, e por isso nao reabre a tabela
+  regra: nenhuma regra casou
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: a app alcanca o banco pela regra aplicacao-entra-no-banco, entao a resposta e trafego relacionado e passa pelo estado da conexao
+
+[conexao-estabelecida-do-banco] 10.30.0.11 -> 203.0.113.12
+  origem: banco-01, 10.30.0.11, sub-rede dados-privada
+  destino: web-publico-02, 203.0.113.12, sub-rede dmz-publica
+  rota: nenhuma rota alcanca 203.0.113.12; e aqui que o pacote morre
+  avaliacao: etapa sem-regra: nenhuma regra de saida casa com 10.30.0.11 para 203.0.113.12:80 em dmz-publica. O motor nega por padrao: regra esquecida vira acesso negado, que aparece, e nao acesso concedido
+  regra: nenhuma regra casou
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: mesmo conexao estabelecida, trafego da rede de dados para dmz e bloqueado
+
+[trafico-para-a-internet] 10.30.0.11 -> 203.0.113.50
+  origem: banco-01, 10.30.0.11, sub-rede dados-privada
+  destino: destino anonima: 203.0.113.50
+  rota: nenhuma rota alcanca 203.0.113.50; e aqui que o pacote morre
+  avaliacao: etapa bloqueado: A camada de dados nao fala com a internet, em porta nenhuma. Esta e a protecao que impede exfiltracao pelo banco, e e a segunda camada do desenho: mesmo com uma regra de entrada errada, o dado nao sai.
+
+  regra: negar saida 10.30.0.0/24 -> 203.0.113.0/24:qualquer/qualquer [novo] #dados-sai-para-internet
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: nao existe rota de retorno da rede de dados para a internet
+
+[acesso-direto-do-banco] 203.0.113.50 -> 10.30.0.11
+  origem: origem anonima: 203.0.113.50
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa bloqueado: Negar o que nenhuma regra permitiu. O motor ja nega quando nada casa; esta regra deixa o limite visivel no arquivo, para que ninguem tenha de inferir o padrao do silencio, e para que um `permitir` acrescentado depois desta linha nunca vire o unico caminho.
+
+  regra: negar entrada 0.0.0.0/0 -> 0.0.0.0/0:qualquer/qualquer [novo] #nega-o-que-nada-permite
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: so conexoes especificas em 5432 sao permitidas
+
+[acesso-do-balanceador-para-banco] 203.0.113.10 -> 10.30.0.11
+  origem: balancer-web, 203.0.113.10, sub-rede dmz-publica
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa bloqueado: A regra que o desenho inteiro existe para sustentar: o banco nao aceita conexao da internet. Ela e explicita mesmo sabendo que a camada de dados nao tem rota de retorno para a internet, porque uma protecao que depende de um detalhe de roteamento e uma protecao que se quebra quando alguem acrescenta uma rota.
+
+  regra: negar entrada 203.0.113.0/24 -> 10.30.0.11/32:5432/tcp [novo] #internet-entra-no-banco
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: balanceador nao tem regra para o banco
+
+[app-02-para-banco] 10.20.0.12 -> 10.30.0.11
+  origem: app-02, 10.20.0.12, sub-rede app-privada
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: rota app-privada -> 10.30.0.0/24, proximo salto 10.20.0.1
+  avaliacao: etapa permitido: A camada de aplicacao fala com a camada de dados, e so nisto. E o menor privilegio na pratica: o banco aceita a aplicacao e recusa todo o resto.
+
+  regra: permitir entrada 10.20.0.0/24 -> 10.30.0.11/32:5432/tcp [novo] #aplicacao-entra-no-banco
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: o app pode acessar o banco independentemente do id do app
+
+[web-publico-02-para-internet] 203.0.113.12 -> 203.0.113.50
+  origem: web-publico-02, 203.0.113.12, sub-rede dmz-publica
+  destino: destino anonima: 203.0.113.50
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa sem-regra: nenhuma regra de saida casa com 203.0.113.12 para 203.0.113.50:443 em dmz-publica. rota de dmz-publica para 0.0.0.0/0 via 203.0.113.1; O motor nega por padrao: regra esquecida vira acesso negado, que aparece, e nao acesso concedido
+  regra: nenhuma regra casou
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: sem rota para a internet, web nao pode sair
+
+[UDP-da-gestao-para-a-internet] 10.10.0.5 -> 203.0.113.50
+  origem: bastion, 10.10.0.5, sub-rede gestao-privada
+  destino: destino anonima: 203.0.113.50
+  rota: rota gestao-privada -> 203.0.113.0/24, proximo salto 10.10.0.1
+  avaliacao: etapa sem-regra: nenhuma regra de saida casa com 10.10.0.5 para 203.0.113.50:123 em dmz-publica. trafego interno de gestao-privada para SubRede(nome='dmz-publica', cidr='203.0.113.0/24', camada='dmz', visibilidade='publica'): conectividade interna; O motor nega por padrao: regra esquecida vira acesso negado, que aparece, e nao acesso concedido
+  regra: nenhuma regra casou
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: nem bastion nem gestao tem acesso a internet
+
+[conexao-relacionada-do-banco-para-o-bastion] 10.30.0.11 -> 10.10.0.5
+  origem: banco-01, 10.30.0.11, sub-rede dados-privada
+  destino: bastion, 10.10.0.5, sub-rede gestao-privada
+  rota: nenhuma rota alcanca 10.10.0.5; e aqui que o pacote morre
+  avaliacao: etapa relacionado: trafego relacionado de 10.30.0.11 para 10.10.0.5: resposta de conexao ja autorizada, e por isso nao reabre a tabela
+  regra: nenhuma regra casou
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: o bastion alcanca o banco pela regra bastion-entra-no-banco, entao a resposta e trafego relacionado e passa pelo estado da conexao
+
+[parceiro-sem-rota-para-o-banco] 198.51.100.10 -> 10.30.0.11
+  origem: web-parceiro, 198.51.100.10, sub-rede parceiro-publica
+  destino: banco-01, 10.30.0.11, sub-rede dados-privada
+  rota: nenhuma rota alcanca 10.30.0.11; e aqui que o pacote morre
+  avaliacao: etapa sem-rota: sem rota de retorno de 198.51.100.10 para 10.30.0.11: a sub-rede parceiro-publica nao alcanca esse destino, e um pacote sem rota nao chega nem sendo permitido por regra
+  regra: nenhuma regra casou
+VEREDITO: BLOQUEADO
+resultado esperado: bloqueado   obtido: bloqueado   [ok]
+porque: a faixa do parceiro tem rota apenas para si e nenhuma rota para a camada de dados, entao o pacote morre por topologia antes de qualquer regra - e o tracador diz 'sem-rota', que e diferente de 'bloqueado por politica'
+
+[conexao-para-a-dmz] 203.0.113.50 -> 203.0.113.12
+  origem: origem anonima: 203.0.113.50
+  destino: web-publico-02, 203.0.113.12, sub-rede dmz-publica
+  rota: rota dmz-publica -> 0.0.0.0/0, proximo salto 203.0.113.1
+  avaliacao: etapa permitido: O segundo servidor web e alcancavel tambem. Um servidor com papel de web que ninguem alcanca nao serve para nada, e a superficie da DMZ continua sendo a mesma porque os dois sao publicos por desenho.
+
+  regra: permitir entrada 203.0.113.0/24 -> 203.0.113.12/32:443/tcp [novo] #internet-entra-no-segundo-web
+VEREDITO: PERMITIDO
+resultado esperado: permitido   obtido: permitido   [ok]
+porque: qualquer web na dmz aceita conexoes da internet
+

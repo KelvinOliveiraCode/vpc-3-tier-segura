@@ -1,0 +1,246 @@
+# Regras de seguranca do laboratorio ficticio.
+#
+# CONTEUDO FICTICIO. Nenhuma nuvem real e acessada por este projeto.
+#
+# A ORDEM DESTE ARQUIVO E PARTE DA POLITICA. As regras sao avaliadas de cima
+# para baixo e a primeira que casa decide. Mover uma linha muda o que a
+# VPC aceita, entao mover exige ler o motivo de cada regra.
+#
+# A ultima regra e um `negar` explicito e nao um "negar por padrao". O motor
+# ja nega quando nada casa; esta regra existe para que o arquivo, lido por uma
+# pessoa, mostre o limite em vez de deixar o leitor inferir do silencio. E para
+# que um `permitir` acrescentado no fim nunca vire o unico caminho.
+
+regras:
+  # ===================================================================
+  # ENTRADA: da internet para a DMZ. O que a internet pode tocar.
+  # ===================================================================
+  - id: internet-entra-no-balancer
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 203.0.113.10/32
+    portas: [80, 443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      A internet alcanca o balanceador nas portas de web. E a unica entrada
+      publica da DMZ, e o balanceador existe para que a DMZ tenha uma
+      superficie pequena em vez de varios servidores publicados.
+
+  - id: internet-entra-no-web-publico
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 203.0.113.11/32
+    portas: [443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O servidor web e alcancavel. Ele fica na DMZ justamente por isso: e o
+      unico tipo de servidor que a internet pode tocar sem passar por outro
+      servidor, e por isso ele nao guarda dado.
+
+  - id: internet-entra-no-segundo-web
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 203.0.113.12/32
+    portas: [443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O segundo servidor web e alcancavel tambem. Um servidor com papel de web
+      que ninguem alcanca nao serve para nada, e a superficie da DMZ continua
+      sendo a mesma porque os dois sao publicos por desenho.
+
+  - id: internet-entra-no-banco
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 10.30.0.11/32
+    portas: [5432]
+    protocolo: tcp
+    acao: negar
+    campo: novo
+    motivo: >
+      A regra que o desenho inteiro existe para sustentar: o banco nao
+      aceita conexao da internet. Ela e explicita mesmo sabendo que a camada
+      de dados nao tem rota de retorno para a internet, porque uma protecao
+      que depende de um detalhe de roteamento e uma protecao que se quebra
+      quando alguem acrescenta uma rota.
+
+  - id: internet-entra-no-bastion
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 10.10.0.5/32
+    portas: [22]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O bastion e o unico no interno que aceita conexao vinda da internet, e
+      aceita apenas em SSH. Todo acesso administrativo passa por ele, o que
+      faz com que o log de acesso interno exista e seja um log.
+
+  # ===================================================================
+  # ENTRADA: de dentro para o banco. Quem tem direito ao dado.
+  # ===================================================================
+  - id: bastion-entra-no-banco
+    sentido: entrada
+    origem: 10.10.0.5/32
+    destino: 10.30.0.11/32
+    portas: [5432]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O bastion fala com o banco. E o caminho de administracao: quem entra no
+      bastion chega ao banco sem que o banco precise aceitar a internet.
+
+  - id: aplicacao-entra-no-banco
+    sentido: entrada
+    origem: 10.20.0.0/24
+    destino: 10.30.0.11/32
+    portas: [5432]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      A camada de aplicacao fala com a camada de dados, e so nisto. E o
+      menor privilegio na pratica: o banco aceita a aplicacao e recusa todo
+      o resto.
+
+  - id: dmz-entra-no-banco
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 10.30.0.11/32
+    portas: [5432]
+    protocolo: tcp
+    acao: negar
+    campo: novo
+    motivo: >
+      Nem a propria DMZ entra no banco. Um servidor publico comprometido que
+      consiga falar com o banco nao pode ler dado, porque a rota de acesso
+      ele nunca teve.
+
+  - id: internet-entra-no-banco-por-outra-porta
+    sentido: entrada
+    origem: 203.0.113.0/24
+    destino: 10.30.0.11/32
+    portas: [22, 80, 443]
+    protocolo: tcp
+    acao: negar
+    campo: novo
+    motivo: >
+      Repeticao explicita do acesso negado, agora em portas que nao a do
+      banco. Existe para mostrar que o bloqueio nao e da porta 5432 e sim do
+      destino: trocar a porta nao abre caminho.
+
+  # ===================================================================
+  # ENTRADA: dentro da DMZ e da aplicacao.
+  # ===================================================================
+  - id: dmz-entra-no-balancer
+    sentido: entrada
+    origem: 203.0.113.12/32
+    destino: 203.0.113.10/32
+    portas: [8080]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O segundo servidor web fala com o balanceador por uma porta interna. O
+      trafego entre nos da propria DMZ nao sai para a internet.
+
+  - id: balanceador-fala-com-o-backend
+    sentido: saida
+    origem: 203.0.113.10/32
+    destino: 203.0.113.0/24
+    portas: [80]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O balanceador distribui para os servidores web que estao atras dele. Sem
+      esta regra o balanceador existe mas nao repassa nada, e um balanceador
+      que nao repassa e um servidor web com nome mais caro.
+
+  - id: app-entra-no-web-publico
+    sentido: entrada
+    origem: 10.20.0.11/32
+    destino: 203.0.113.11/32
+    portas: [8080]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      A aplicacao chama o web por uma porta interna. E o caminho do
+      request que o usuario fez entrar pela DMZ.
+
+  # ===================================================================
+  # SAIDA: de dentro para fora. O que a VPC pode alcancar.
+  # ===================================================================
+  - id: aplicacao-sai-para-internet
+    sentido: saida
+    origem: 10.20.0.0/24
+    destino: 203.0.113.0/24
+    portas: [443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      A aplicacao fala para fora, e so por HTTPS. Uma saida de aplicacao
+      livre e um caminho de exfiltracao pronto; restringir o destino e a
+      porta e o que impede que o servidor vire um relay.
+
+  - id: bastion-sai-para-internet
+    sentido: saida
+    origem: 10.10.0.5/32
+    destino: 203.0.113.0/24
+    portas: [443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O bastion precisa de saida para ser adminsitrado de fora. E o unico no
+      interno com saida, o que concentra o risco em um ponto auditavel.
+
+  - id: dados-sai-para-internet
+    sentido: saida
+    origem: 10.30.0.0/24
+    destino: 203.0.113.0/24
+    protocolo: qualquer
+    acao: negar
+    campo: novo
+    motivo: >
+      A camada de dados nao fala com a internet, em porta nenhuma. Esta e a
+      protecao que impede exfiltracao pelo banco, e e a segunda camada do
+      desenho: mesmo com uma regra de entrada errada, o dado nao sai.
+
+  - id: web-sai-para-internet
+    sentido: saida
+    origem: 203.0.113.11/32
+    destino: 203.0.113.0/24
+    portas: [443]
+    protocolo: tcp
+    acao: permitir
+    campo: novo
+    motivo: >
+      O servidor web busca recurso externo por HTTPS. Ele e publico de
+      entrada e restrito de saida, que e o desenho correto para um servidor
+      que serve e nao administra.
+
+  # ===================================================================
+  # O LIMITE, escrito.
+  # ===================================================================
+  - id: nega-o-que-nada-permite
+    sentido: entrada
+    origem: 0.0.0.0/0
+    destino: 0.0.0.0/0
+    protocolo: qualquer
+    acao: negar
+    campo: novo
+    motivo: >
+      Negar o que nenhuma regra permitiu. O motor ja nega quando nada casa;
+      esta regra deixa o limite visivel no arquivo, para que ninguem tenha de
+      inferir o padrao do silencio, e para que um `permitir` acrescentado
+      depois desta linha nunca vire o unico caminho.

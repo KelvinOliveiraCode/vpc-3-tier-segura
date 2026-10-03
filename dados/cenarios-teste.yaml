@@ -1,0 +1,220 @@
+# Cenarios de teste do motor de firewall.
+#
+# CONTEUDO FICTICIO. Este arquivo foi reescrito por tools/corrigir_cenarios.py
+# a partir de um rascunho, para que o YAML seja valido e o numero de cenarios
+# seja o que a especificacao pede. Nenhum valor foi inventado.
+#
+# Cada cenario tem um resultado esperado. O criterio de aceite do projeto e
+# que o motor concorde com todos os vinte, e nao apenas com os que passam.
+
+cenarios:
+- id: internet-para-banco
+  descricao: tentativa de conexao da internet para o banco
+  origem: 203.0.113.50
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: 'regra de firewall: internet nao permite conexao direta para o banco, sem volta para a internet'
+- id: bastion-para-banco
+  descricao: conexao do bastion para o banco
+  origem: 10.10.0.5
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: permitido
+  porque: o bastion e a unica maquina da gestao que pode acessar o banco
+- id: app-para-banco
+  descricao: conexao da aplicacao para o banco
+  origem: 10.20.0.11
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: permitido
+  porque: o app e permitido para conectar no banco por 5432
+- id: internet-para-web
+  descricao: tentativa de conexao da internet para a web publica
+  origem: 203.0.113.50
+  destino: 203.0.113.11
+  porta: 443
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: permitido
+  porque: o web e a unica maquina da dmz que pode aceitar conexoes da internet
+- id: web-para-banco
+  descricao: conexao da web para o banco
+  origem: 203.0.113.11
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: saida
+  campo: novo
+  esperado: bloqueado
+  porque: firewall bloqueia trafego da dmz para a rede de dados
+- id: internet-para-web-porta-8080
+  descricao: tentativa de conexao da internet para a web em porta errada
+  origem: 203.0.113.50
+  destino: 203.0.113.11
+  porta: 8080
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: sem regra para a porta 8080, web bloqueia a conexao
+- id: UDP-da-app-para-banco
+  descricao: tentativa de conexao UDP da app para o banco
+  origem: 10.20.0.11
+  destino: 10.30.0.11
+  porta: 53
+  protocolo: udp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: sem regra de udp para o banco, o firewall nega a conexao
+- id: saida-do-banco
+  descricao: trafego de saida do banco
+  origem: 10.30.0.11
+  destino: 203.0.113.10
+  porta: 443
+  protocolo: tcp
+  sentido: saida
+  campo: novo
+  esperado: bloqueado
+  porque: trafego de saida da rede de dados para a dmz e bloqueado por padrao
+- id: trafico-dentro-da-dmz
+  descricao: trafego dentro da dmz
+  origem: 203.0.113.10
+  destino: 203.0.113.11
+  porta: 80
+  protocolo: tcp
+  sentido: saida
+  campo: novo
+  esperado: permitido
+  porque: trafego na mesma sub-rede da dmz nao e bloqueado
+- id: conexao-relacionada-do-banco-para-a-app
+  descricao: resposta do banco a uma consulta que a app iniciou
+  origem: 10.30.0.11
+  destino: 10.20.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: saida
+  campo: relacionado
+  esperado: permitido
+  porque: a app alcanca o banco pela regra aplicacao-entra-no-banco, entao a
+    resposta e trafego relacionado e passa pelo estado da conexao
+  estabelecidas:
+  - origem: 10.20.0.11
+    destino: 10.30.0.11
+- id: conexao-estabelecida-do-banco
+  descricao: trafego estabelecido do banco
+  origem: 10.30.0.11
+  destino: 203.0.113.12
+  porta: 80
+  protocolo: tcp
+  sentido: saida
+  campo: estabelecido
+  esperado: bloqueado
+  porque: mesmo conexao estabelecida, trafego da rede de dados para dmz e bloqueado
+- id: trafico-para-a-internet
+  descricao: tentativa de trafego da rede de dados para a internet
+  origem: 10.30.0.11
+  destino: 203.0.113.50
+  porta: 53
+  protocolo: udp
+  sentido: saida
+  campo: novo
+  esperado: bloqueado
+  porque: nao existe rota de retorno da rede de dados para a internet
+- id: acesso-direto-do-banco
+  descricao: tentativa de acesso direto ao banco
+  origem: 203.0.113.50
+  destino: 10.30.0.11
+  porta: 3306
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: so conexoes especificas em 5432 sao permitidas
+- id: acesso-do-balanceador-para-banco
+  descricao: conexao do balanceador para o banco
+  origem: 203.0.113.10
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: balanceador nao tem regra para o banco
+- id: app-02-para-banco
+  descricao: tentativa de conexao da segunda aplicacao para o banco
+  origem: 10.20.0.12
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: permitido
+  porque: o app pode acessar o banco independentemente do id do app
+- id: web-publico-02-para-internet
+  descricao: tentativa de conexao da segunda web para a internet
+  origem: 203.0.113.12
+  destino: 203.0.113.50
+  porta: 443
+  protocolo: tcp
+  sentido: saida
+  campo: novo
+  esperado: bloqueado
+  porque: sem rota para a internet, web nao pode sair
+- id: UDP-da-gestao-para-a-internet
+  descricao: tentativa de conexao UDP da gestao para a internet
+  origem: 10.10.0.5
+  destino: 203.0.113.50
+  porta: 123
+  protocolo: udp
+  sentido: saida
+  campo: novo
+  esperado: bloqueado
+  porque: nem bastion nem gestao tem acesso a internet
+- id: conexao-relacionada-do-banco-para-o-bastion
+  descricao: resposta do banco a uma consulta que o bastion iniciou
+  origem: 10.30.0.11
+  destino: 10.10.0.5
+  porta: 5432
+  protocolo: tcp
+  sentido: saida
+  campo: relacionado
+  esperado: permitido
+  porque: o bastion alcanca o banco pela regra bastion-entra-no-banco, entao
+    a resposta e trafego relacionado e passa pelo estado da conexao
+  estabelecidas:
+  - origem: 10.10.0.5
+    destino: 10.30.0.11
+- id: parceiro-sem-rota-para-o-banco
+  descricao: pacote da faixa do parceiro para o banco, que nao tem rota de saida
+  origem: 198.51.100.10
+  destino: 10.30.0.11
+  porta: 5432
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: bloqueado
+  porque: a faixa do parceiro tem rota apenas para si e nenhuma rota para a camada
+    de dados, entao o pacote morre por topologia antes de qualquer regra - e o
+    tracador diz 'sem-rota', que e diferente de 'bloqueado por politica'
+- id: conexao-para-a-dmz
+  descricao: tentativa de conexao da internet para a dmz
+  origem: 203.0.113.50
+  destino: 203.0.113.12
+  porta: 443
+  protocolo: tcp
+  sentido: entrada
+  campo: novo
+  esperado: permitido
+  porque: qualquer web na dmz aceita conexoes da internet
