@@ -173,7 +173,7 @@ arquivo, e não inferido do silêncio.
 python -m pytest -v
 ```
 
-105 testes, 91% de cobertura, 20 cenários. Cobrem o motor nas cinco etapas,
+105 testes, 90% de cobertura, 20 cenários. Cobrem o motor nas cinco etapas,
 a ordem de avaliação, o tráfego de retorno com e sem estado, o modelo de rede,
 as regras, o tracador, os cenários, a CLI e o portão de encoding.
 
