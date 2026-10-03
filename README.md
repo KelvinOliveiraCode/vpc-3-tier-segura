@@ -1,4 +1,16 @@
-# vpcsim
+<div align="center">
+
+<p>
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/tests-105%20passing-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-90%25-brightgreen?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square" alt="Windows">
+</p>
+
+</div>
+
+# vpc-3-tier-segura
 
 Simulador local de uma VPC em três camadas com motor de firewall: avalia qual
 tráfego é permitido e mostra em qual regra a decisão foi tomada.
