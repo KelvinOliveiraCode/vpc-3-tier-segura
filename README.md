@@ -1,68 +1,71 @@
-<div align="center">
-
-<p>
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/tests-105%20passing-brightgreen?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-90%25-green-brightgreen?style=flat-square" alt="Coverage">
-  <img src="https://img.shields.io/badge/deps-PyYAML%20only-blue?style=flat-square" alt="Deps">
-  <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square" alt="Windows">
-</p>
-
-</div>
+<img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/testes-105%20passando-brightgreen?style=flat-square" alt="Testes">
+<img src="https://img.shields.io/badge/cobertura-90%25-green?style=flat-square" alt="Cobertura">
+<img src="https://img.shields.io/badge/dependencias-PyYAML%20apenas-blue?style=flat-square" alt="Dependencias">
+<img src="https://img.shields.io/badge/licenca-MIT-yellow?style=flat-square" alt="Licenca">
+<img src="https://img.shields.io/badge/plataforma-Windows-blue?style=flat-square" alt="Windows">
 
 # vpc-3-tier-segura
 
-Simulador local de uma VPC em três camadas com motor de firewall: avalia qual
-tráfego é permitido e mostra em qual regra a decisão foi tomada.
+Simulador local de uma VPC em tres camadas com motor de firewall: avalia qual trafego e permitido e mostra em qual regra a decisao foi tomada. Nada acessa nuvem; as camadas sao simuladas em codigo.
 
-A local simulator of a three-tier VPC with a firewall decision engine: it
-evaluates which traffic is allowed and shows which rule made the decision.
+## Problema / Por que existe
 
-> **Nada aqui é real.** Nenhuma nuvem é acessada por este projeto. As camadas
-> são simuladas em código, o que é o único jeito de demonstrar o conceito sem
-> custo e sem credencial. O pacote tem uma dependência externa e ela é o PyYAML.
+Uma regra de firewall se escreve em cinco minutos e se erra em cinco minutos. O que ensina e construir o motor, avaliar combinacoes e ver o resultado mudar quando uma regra se move de lugar. Quem opera infraestrutura precisa de uma maquina que diga o que passa, o que nao passa e por qual regra.
 
-## O que é
+Este projeto existe para demonstrar isso: um simulador local de VPC de tres camadas com regras de seguranca e um motor que avalia cada pacote contra a topologia e a tabela de regras, sem depender de credencial, conta de nuvem ou rede real.
 
-Uma VPC de três camadas — DMZ, aplicação, dados — com bastion e balanceador,
-regras de segurança e um motor que **avalia** cada pacote contra as regras e a
-topologia. Para cada pacote, o tracador mostra o caminho inteiro: origem,
-destino, rota e a regra que decidiu.
+## O que faz
 
-## Por que foi feito
+- Carrega a arquitetura, as regras e os cenarios de arquivos YAML em `dados/`.
+- Modela cinco camadas: DMZ, aplicacao, dados, gerencia e parceiro, com sub-redes, nos e tabelas de roteamento.
+- Avalia cada pacote em cinco etapas, em ordem fixa: `relacionado`, `sem-rota`, `permitido`, `bloqueado`, `sem-regra`.
+- Trata trafego de retorno como estado de conexao, nao como uma regra nova.
+- Nega por padrao: quando nenhuma regra casa, o trafego e bloqueado e o motivo fica registrado.
+- Mostra, para cada pacote, origem, destino, rota, etapa da decisao e a regra que decidiu.
+- Roda em linha de comando com quatro comandos: `cenarios`, `tracar`, `regras` e `arquitetura`.
+- Retorna codigo de saida 1 quando algum cenario diverge do esperado, o que serve como portao de CI.
 
-Entender regra de firewall por construção ensina mais do que ler
-documentação. Uma regra se escreve em cinco minutos e se erra em cinco
-minutos; o que ensina é construir o motor, avaliar combinações e ver o
-resultado virar quando uma regra se move de lugar.
+## Stack
 
-O argumento de quem automatiza infraestrutura não é "eu automatizei", é "eu
-tenho uma máquina que me diz o que passa e o que não passa, e por quê".
+- Python 3.10 ou superior. O CI roda no Windows com Python 3.11.
+- Unica dependencia de execucao: PyYAML >= 6.0, usada apenas para ler os arquivos YAML. O restante e biblioteca padrao (`ipaddress`, `dataclasses`, `argparse`).
+- Dependencias de desenvolvimento: pytest >= 7.4 e pytest-cov >= 4.1.
+- Nenhum SDK de nuvem, biblioteca de SSH nem cliente de equipamento de rede.
 
-## Como rodar
+## Como funciona
 
-Um comando, saída esperada:
+A propriedade que o desenho quer tornar verdadeira: o banco nao aceita conexao vinda da internet.
 
-```powershell
-python -m vpcsim cenarios
-```
+Arquitetura (de `dados/arquitetura.yaml`):
 
-```
-cenario                                        esperado    obtido      veredito
-------------------------------------------------------------------------------
-internet-para-banco                            bloqueado   bloqueado   ok
-bastion-para-banco                             permitido   permitido   ok
-app-para-banco                                 permitido   permitido   ok
-...
-todos os 20 cenarios concordam com o motor
-```
+| Camada | Sub-rede | CIDR | Visibilidade | Nos |
+|---|---|---|---|---|
+| DMZ | dmz-publica | 203.0.113.0/24 | publica | balancer-web, web-publico-01, web-publico-02 |
+| Aplicacao | app-privada | 10.20.0.0/24 | privada | app-01, app-02 |
+| Dados | dados-privada | 10.30.0.0/24 | privada, sem rota para fora | banco-01 |
+| Gerencia | gestao-privada | 10.10.0.0/24 | privada | bastion |
+| Parceiro | parceiro-publica | 198.51.100.0/24 | publica, sem rota de saida | web-parceiro |
 
-O traçado de um pacote:
+Os blocos `203.0.113.0/24` (TEST-NET-1) e `198.51.100.0/24` (TEST-NET-2) da RFC 5737 sao reservados a exemplo e nao existem em rota real.
 
-```powershell
-python -m vpcsim tracar
-```
+Motor (em `src/vpcsim/firewall.py`), na ordem fixa:
+
+1. `relacionado` — resposta de conexao ja autorizada; passa sem reabrir a tabela. O par de enderecos e procurado nas duas direcoes.
+2. `sem-rota` — pacote sem rota de retorno. Nao e bloqueio por politica: simplesmente nao chega.
+3. `permitido` — primeira regra da tabela que casa com o pacote.
+4. `bloqueado` — uma regra negou explicitamente.
+5. `sem-regra` — nenhuma regra casou; o motor nega por padrao.
+
+A ordem e fixa e e a politica: resposta antes da rota, rota antes da tabela. A tabela termina com um `negar` explicito para que o limite esteja escrito no arquivo.
+
+Regras (em `dados/regras.yaml`):
+
+- A primeira regra que casa decide; a ordem no arquivo e parte da politica de seguranca.
+- Cada regra tem sentido (`entrada` ou `saida`), origem, destino, portas, protocolo, campo de estado (`novo`, `relacionado`, `estabelecido`), acao (`permitir` ou `negar`) e um campo `motivo` que explica por que existe.
+- Trafego de retorno viaja pelo estado da conexao, nao por uma regra nova.
+
+Exemplo de saida de `python -m vpcsim tracar`:
 
 ```
 [internet-para-banco] 203.0.113.50 -> 10.30.0.11
@@ -76,239 +79,100 @@ VEREDITO: BLOQUEADO
 resultado esperado: bloqueado   obtido: bloqueado   [ok]
 ```
 
-Instalação:
+## Como rodar
+
+Instalacao:
 
 ```powershell
 pip install -e ".[dev]"
 ```
 
-## As três camadas
-
-A propriedade que o desenho quer tornar verdadeira: **o banco não aceita
-conexão vinda da internet.** Todo o resto existe para que essa frase seja
-consequência do desenho, e não desejo.
-
-| Camada | Sub-rede | Visibilidade | Quem chega |
-|---|---|---|---|
-| DMZ | `dmz-publica` 203.0.113.0/24 | pública | internet, nas portas de web |
-| Aplicação | `app-privada` 10.20.0.0/24 | privada | só a DMZ |
-| Dados | `dados-privada` 10.30.0.0/24 | privada, sem rota para fora | só a aplicação e o bastion |
-| Gerência | `gestao-privada` 10.10.0.0/24 | privada | o bastion, o único com SSH de fora |
-| Parceiro | `parceiro-publica` 198.51.100.0/24 | pública, sem rota de saída | alcança, mas não sai |
-
-O bloco `203.0.113.0/24` é o bloco de documentação da RFC 5737; `198.51.100.0/24`
-é o TEST-NET-2 da mesma RFC. Nenhum dos dois existe em rota real.
-
-## Rota e regra são mecanismos diferentes
-
-Uma regra diz o que é **permitido**. Uma rota diz o que é **possível**. Um
-pacote sem rota de retorno não é "bloqueado por política": ele simplesmente
-não chega, e nenhuma regra poderia mudar isso.
-
-É por isso que o motor verifica a rota **antes** da tabela. O banco é
-protegido duas vezes: a regra `internet-entra-no-banco` nega, e a camada de
-dados não tem rota para a internet. Qualquer uma sozinha seria insuficiente.
-
-## O motor em cinco etapas
-
-Toda avaliação termina em exatamente uma etapa:
-
-| Etapa | Significado |
-|---|---|
-| `relacionado` | resposta de conexão que o estado conhece — passa sem reabrir a tabela |
-| `sem-rota` | o pacote não tem para onde ir |
-| `permitido` | uma regra permitiu |
-| `bloqueado` | uma regra negou |
-| `sem-regra` | nada disse nada — e o motor nega |
-
-**A ordem é fixa e é a política.** Resposta antes de rota, rota antes de
-tabela: trocar duas etapas troca o resultado de milhares de pacotes ao mesmo
-tempo.
-
-## Tráfego de retorno, sem abrir exceção
-
-Uma conexão de ida tem resposta, e a resposta não passa por regra nova. Quando
-passa, ela morre — e alguém acrescenta uma regra de "resposta" que permite mais
-do que a intenção original.
-
-O motor é **stateful**: um pacote marcado como relacionado ou estabelecido,
-cujo par de endereços esteja autorizado nas duas direções, passa pelo estado.
-A exceção para a resposta é a **conexão**, não uma regra nova — e é por isso
-que ela não cresce a cada problema novo.
-
-E marcar qualquer pacote como `relacionado` não contorna nada: sem o par
-autorizado, o pacote cai na avaliação normal. Uma tabela que contivesse uma
-regra `relacionado`-permitir seria uma porta dos fundos; esta não tem.
-
-## O padrão é negar
-
-Quando nenhuma regra casa, o motor nega. O oposto de uma ACL implícita que
-permite. Regra esquecida vira acesso negado — visível, barulhento, corrigido em
-um minuto — e não acesso concedido, silencioso.
-
-A tabela termina com um `negar` explícito para que o limite esteja escrito no
-arquivo, e não inferido do silêncio.
-
-## O que aprendi
-
-- **Classificar sem histórico é adivinhação.** A primeira versão deste motor não
-  tinha manifesto de conexões, e uma resposta bem-sucedida caía na tabela. O
-  estado resolveu, e o custo foi um parâmetro.
-- **Rota que ignora a origem mente.** A primeira versão da função de rota
-  filtrava só pelo destino, e a rota padrão da DMZ "alcançava" o banco. O
-  tracer mostrava um próximo salto que nunca seria usado.
-- **Ordem no arquivo é política.** A primeira regra que casa decide, e mover
-  uma linha muda o que a VPC aceita. Por isso toda regra carrega `motivo`.
-- **Um cenário com `porque` genérico não testa nada.** Cada um dos 20 tem a
-  frase específica do que ele prova; um que dissesse "teste de firewall"
-  passaria sem significar.
-- **O relatório distingue "não rodou" de "não foi pedido".** Sem a distinção,
-  quem lê conclui que algo foi verificado quando não foi.
-- **Crases em brief de shell executam.** Um brief com `conexao.campo` entre
-  crases fez o bash rodar como substituição de comando por 15 minutos. Nunca
-  mais.
-
-## Testes
-
-```powershell
-python -m pytest -v
-```
-
-105 testes, 90% de cobertura, 20 cenários. Cobrem o motor nas cinco etapas,
-a ordem de avaliação, o tráfego de retorno com e sem estado, o modelo de rede,
-as regras, o tracador, os cenários, a CLI e o portão de encoding.
-
-Portões que a suíte não cobre sozinha:
-
-```powershell
-python tools/verificar_aceite.py     # as duas metades do critério de aceite
-python tools/verificar_encoding.py   # nenhum caractere corrompido
-python tools/gerar_exemplo.py        # regenera o exemplo de forma determinística
-```
-
-```
-1) o arquivo tem os cenarios que a especificacao pede
-   20 cenarios, todos com resultado esperado
-
-2) o motor concorda com os vinte cenarios
-   20 de 20 concordam com o motor
-
-3) o tracador mostra o ponto exato do bloqueio
-   20 de 20 tracados com veredito e regra citada
-   etapas cobertas: {'bloqueado': 7, 'permitido': 6, 'sem-regra': 4, 'relacionado': 2, 'sem-rota': 1}
-
-4) as etapas de estado, rota e sem-regra aparecem
-
-ok: os 20 cenarios concordam com o motor, e o tracador mostra o ponto exato de cada decisao
-```
-
-## Estrutura
-
-```
-lab-backup-recuperacao/
-├── src/vpcsim/              # o pacote
-├── dados/                   # arquitetura, regras, 20 cenarios
-├── docs/                    # modelo de seguranca, menor privilegio
-├── exemplos/                # tracos de trafego gerados
-├── tests/                   # 105 testes
-└── tools/                   # gerador e portões
-```
-
-## Limitações
-
-- **Não há ameaça real.** Nenhum pacote atravessa nada; o motor prova lógica
-  de endereçamento, não resistência. Um modelo que nunca foi atacado mostra o
-  desenho, não o risco.
-- **Sem inspeção de pacote.** O motor avalia origem, destino, porta, protocolo
-  e estado. Não olha conteúdo, fragmentação nem ordem de chegada.
-- **ACLs avaliadas globalmente.** Sem direção por interface, sem ordem de
-  avaliação entre ACLs, sem timeout de conexão.
-- **Topologia fixa.** Três camadas mais parceiro e gerência; adicionar camada
-  exige editar o YAML e as regras, não só declarar.
-- **O estado vem do cenário.** As conexões autorizadas são declaradas, não
-  observadas. Um motor real construiria a tabela de estado vendo o tráfego; este
-  recebe a tabela pronta.
-- **IPv4 apenas.** Sem IPv6, sem dual-stack, sem NAT.
-
-## Licença
-
-MIT.
-
----
-
-## English
-
-A local simulator of a three-tier VPC with a firewall decision engine.
-
-### What it is
-
-DMZ, application and data tiers, plus bastion and balancer, with security
-rules and an engine that **evaluates** which traffic is allowed and shows
-which rule made the decision. For every packet, the tracer shows the full
-path: source, destination, route and the deciding rule.
-
-### Why it was built
-
-Understanding firewall rules by construction teaches more than reading
-documentation. A rule takes five minutes to write and five to get wrong; what
-teaches is building the engine and watching the result flip when a rule moves.
-
-### How to run
+Rodar os 20 cenarios:
 
 ```powershell
 python -m vpcsim cenarios
 ```
 
+Saida esperada:
+
 ```
+cenario                                        esperado    obtido      veredito
+------------------------------------------------------------------------------
 internet-para-banco                            bloqueado   bloqueado   ok
 bastion-para-banco                             permitido   permitido   ok
+app-para-banco                                 permitido   permitido   ok
 ...
 todos os 20 cenarios concordam com o motor
 ```
 
-Install: `pip install -e ".[dev]"`
-
-### The three tiers
-
-The property the design wants true: **the database accepts no connection from
-the internet.**
-
-### Route and rule are different mechanisms
-
-A rule says what is **allowed**. A route says what is **possible**. The engine
-checks the route before the table.
-
-### State
-
-Return traffic passes by connection state, not by a new rule. And marking any
-packet as `relacionado` bypasses nothing: without the authorized pair, the
-packet falls through to normal evaluation.
-
-### Deny by default
-
-When no rule matches, the engine denies. A forgotten rule becomes denied
-access — visible, loud, fixed in a minute — not silent granted access.
-
-### Tests
-
-105 tests, 91% coverage, 20 scenarios.
+Traçar um pacote:
 
 ```powershell
-python -m pytest -v
+python -m vpcsim tracar
+```
+
+Outros comandos:
+
+```powershell
+python -m vpcsim regras
+python -m vpcsim arquitetura
+```
+
+Todos os comandos leem `dados/` por caminho padrao e aceitam caminhos alternativos por opcao.
+
+Testes:
+
+```powershell
+python -m pytest
+```
+
+Resultado verificado neste repositorio: 105 testes passando, cobertura de 90% (limite exigido: 70%).
+
+Portoes adicionais da CI:
+
+```powershell
 python tools/verificar_aceite.py
 python tools/verificar_encoding.py
 python tools/gerar_exemplo.py
 ```
 
-### Limitations
+## Estrutura do projeto
 
-- **No real threat.** The engine proves addressing logic, not resistance.
-- **No packet inspection.** Source, destination, port, protocol and state only.
-- **Globally evaluated ACLs.** No per-interface direction, no order, no timeouts.
-- **Fixed topology.**
-- **State comes from the scenario**, declared, not observed.
-- **IPv4 only.**
+```
+vpc-3-tier-segura/
+├── src/vpcsim/         # pacote: cli, rede, regras, firewall, tracador, cenarios
+├── dados/              # arquitetura.yaml, regras.yaml, cenarios-teste.yaml
+├── docs/               # modelo-de-seguranca-em-nuvem.md, principio-de-menor-privilegio.md
+├── exemplos/           # tracos-de-trafego.txt (saida do tracador, commitada)
+├── tests/              # 105 testes: test_cenarios_cli, test_firewall, test_rede, test_regras_tracador
+├── tools/              # corrigir_cenarios, gerar_exemplo, verificar_aceite, verificar_encoding
+├── pyproject.toml      # projeto vpcsim 1.0.0, Python >= 3.10, dep PyYAML
+├── requirements.txt    # PyYAML e dependencias de desenvolvimento
+└── README.md
+```
 
-### License
+## Trade-offs e decisões
 
-MIT.
+- Modelo que descreve e nao decide: `rede.py` so sabe o que existe; a decisao e do `firewall.py` e a rastreabilidade e do `tracador.py`. Isso evita que ninguem consiga dizer por que o trafego passou sem ler o motor.
+- Rota verificada antes da tabela: a DMZ tem rota padrao para a internet, filtrada pela sub-rede de origem, para nao mostrar um proximo salto que nunca seria usado.
+- Dois mecanismos protegem o banco: a regra `internet-entra-no-banco` nega, e a camada de dados nao tem rota de retorno para a internet. Qualquer uma sozinha seria insuficiente.
+- O padrao e negar: regra esquecida vira acesso negado, visivel e corrigido em um minuto, nao acesso concedido silencioso.
+- O estado vem do cenario: as conexoes autorizadas sao declaradas no YAML, nao observadas do trafego. Um motor real construiria a tabela de estado vendo os pacotes.
+- Saida de codigo 1 em `cenarios` e `tracar` quando algum cenario diverge, para servir como portao de CI.
+
+## Limitacoes conhecidas
+
+- Simulacao local: nenhum pacote atravessa rede real; o motor prova logica de endereçamento, nao resistencia a ataque.
+- Sem inspecao de pacote: avalia origem, destino, porta, protocolo e estado. Nao olha conteudo, fragmentacao nem ordem de chegada.
+- ACLs avaliadas globalmente: sem direcao por interface, sem ordem entre ACLs, sem timeout de conexao.
+- Topologia fixa: adicionar camada exige editar o YAML e as regras, nao so declarar.
+- IPv4 apenas: sem IPv6, sem dual-stack, sem NAT.
+- Unica dependencia externa: PyYAML.
+
+## Licenca
+
+MIT. Veja o arquivo `LICENSE`.
+
+## Autor
+
+Kelvin Oliveira
