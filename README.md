@@ -1,118 +1,124 @@
 # vpc-3-tier-segura
 
-<div align="center">
-
 [English](README.en.md) · **Português (Brasil)**
 
-</div>
-
-[![Python 3](https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/) [![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikit-learn)](https://scikit-learn.org/) [![pandas](https://img.shields.io/badge/pandas-150458?style=flat-square&logo=pandas)](https://pandas.pydata.org/) [![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest)](https://docs.pytest.org/) [![MIT License](https://img.shields.io/badge/License-MIT-f4c430?style=flat-square)](LICENSE)
-
-### Simulador de VPC em 3 camadas com firewall stateful, bastion e tracer de caminho
-
----
+[![Python 3](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](#) [![PyYAML](https://img.shields.io/badge/PyYAML-%C3%BAnica%20dep-3776AB?style=flat-square)](#) [![pytest](https://img.shields.io/badge/pytest-105%20testes-0A9EDC?style=flat-square&logo=pytest)](#) [![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions)](#.github/workflows/ci.yml) [![MIT License](https://img.shields.io/badge/License-MIT-f4c430?style=flat-square)](LICENSE)
 
 ## O que é
 
-Simulador de VPC em 3 camadas com firewall stateful, bastion e tracer de caminho
+Simulador de **VPC (Virtual Private Cloud) em 3 camadas** com **firewall stateful**, **bastion** de gestão e **tracer de caminho**. O `vpcsim` carrega uma arquitetura fictícia (definida em YAML), aplica regras de firewall na ordem declarada e responde, para cada pacote de um cenário de teste, se ele chega ao destino — com o caminho e a regra que decidiu. É um laboratório de redes/segurança em nuvem, tudo fictício, sem acessar nuvem real.
 
----
+> Nota: o README anterior descrevia um projeto de **detecção de fraude em cartão** (copiado de outro repositório) e citava `scikit-learn`/`pandas`, que não existem aqui. Corrigido.
 
-## Início Rápido
+## Status
 
-```bash
-# Clone e entre
-git clone https://github.com/KelvinOliveiraCode/<repo>.git
-cd <repo>
+Laboratório educacional de redes/segurança, funcional e testado (105 testes).
 
-# Instale dependências
-# Nenhum requirements.txt detectado
+## Funcionalidades
 
-# Execute o projeto
-python main.py
+- **Arquitetura em 3 camadas** (DMZ → aplicação → dados) mais gerência e parceiro, definida em `dados/arquitetura.yaml` com CIDRs e visibilidade.
+- **Firewall stateful com ordem determinística**: 17 regras avaliadas de cima para baixo; a primeira que casa decide.
+- **Tracer de caminho**: dado um cenário (pacote origem→destino/porta), mostra se o tráfego passa e por quê.
+- **Princípio do menor privilégio** e **modelo de segurança em nuvem** documentados em `docs/`.
+- **CLI**: comandos `tracar`, `cenarios`, `regras` e `arq`.
 
-# Execute os testes
-pytest
+## Arquitetura
+
+Arquitetura fictícia do laboratório (`LAB-VPC-FICT`):
+
+```mermaid
+flowchart LR
+    INTERNET[Internet] --> DMZ[DMZ pública 203.0.113.0/24<br/>balancer + web]
+    DMZ --> APP[Aplicação privada 10.20.0.0/24<br/>app-01, app-02]
+    APP --> DB[Dados privada 10.30.0.0/24<br/>banco-01]
+    GEST[Gestão privada 10.10.0.0/24<br/>bastion] -. SSH .-> DMZ
+    PAR[Parceiro pública 198.51.100.0/24<br/>sem rota de saída]
 ```
 
-## Como funciona
+Cada pacote atravessa o motor de regras (`regras.py` + `firewall.py`), que aplica as 17 regras na ordem do arquivo; um `negar` explícito fecha a política (o motor já nega quando nada casa).
 
-Estrutura limpa e modular com separação de responsabilidades.
+## Stack
 
----
+- Python ≥ 3.10
+- PyYAML ≥ 6.0 (única dependência de runtime)
+- pytest + pytest-cov (dev)
+- CI: GitHub Actions em `windows-latest` (Python 3.11), com cobertura mínima 70% e verificações de encoding/aceite
 
-## Capacidades
+## Estrutura do repositório
 
-| Capacidade | Descrição |
-|------------|-------------|
-| Carregamento de Dados | Auto-download do TensorFlow creditcard.csv (284k transações) com cache local |
-| EDA e Visualização | Distribuição de classes, histogramas de Amount, heatmaps de correlação (matplotlib/seaborn) |
-| Pré-processamento | RobustScaler em Amount/Time, split estratificado, remoção de duplicatas |
-| Balanceamento | SMOTE oversampling (fallback: class_weight="balanced") |
-| Modelagem | LogisticRegression, RandomForest, ExtraTrees com RandomizedSearchCV (StratifiedKFold) |
-| Métricas | Accuracy, Precision, Recall, F1, ROC AUC, Specificity, Confusion Matrix |
-| Seleção | Score ponderado: Recall 40% + F1 30% + Precision 20% + Accuracy 10% |
-| Persistência | Serialização joblib para modelo, scaler e resultados completos |
+```
+vpc-3-tier-segura/
+├── src/vpcsim/
+│   ├── cli.py        # comandos tracar/cenarios/regras/arq
+│   ├── firewall.py   # motor de firewall stateful
+│   ├── regras.py     # aplica as regras na ordem
+│   ├── rede.py       # nós, sub-redes, rotas
+│   ├── cenarios.py   # executa os cenários de teste
+│   └── tracador.py   # rastreia o caminho de cada pacote
+├── dados/
+│   ├── arquitetura.yaml      # camadas, CIDRs, nós
+│   ├── regras.yaml           # 17 regras (ordem = política)
+│   └── cenarios-teste.yaml   # cenários de tráfego
+├── tests/             # 105 testes
+├── docs/              # modelo de segurança, menor privilégio
+├── exemplos/          # traços de tráfego gerados
+└── LICENSE            # MIT
+```
 
+## Pré-requisitos e instalação
 
----
+Python ≥ 3.10. Para desenvolvimento/testes:
 
+```bash
+python -m pip install -e ".[dev]"
+```
 
+## Como executar
 
----
+```bash
+# Rastreia o caminho de cada pacote dos cenários
+python -m vpcsim tracar dados/cenarios-teste.yaml
 
-## Perguntas Frequentes
+# Lista os cenários e o veredito de cada um
+python -m vpcsim cenarios dados/cenarios-teste.yaml
 
-<details>
-<summary><strong>O que é este projeto?</strong></summary>
+# Mostra a tabela de regras na ordem de avaliação
+python -m vpcsim regras
 
-Um estudo/projeto em Python demonstrando conceitos fundamentais.
+# Mostra as camadas, nós e rotas da arquitetura
+python -m vpcsim arq
+```
 
-</details>
+## Testes e qualidade
 
-<details>
-<summary><strong>Como executar?</strong></summary>
+Execução real (verificada pelo agente):
 
-Veja [Início Rápido](#início-rápido) para comandos copiáveis.
+```bash
+python -m pytest tests/
+# 105 passed
+```
 
-</details>
+- CI: `ci.yml` (windows-latest, Python 3.11) instala, confere encoding, importa o pacote, roda pytest com cobertura (`fail-under=70`) e roda a verificação de aceite.
 
-<details>
-<summary><strong>Há testes?</strong></summary>
+## Decisões técnicas e trade-offs
 
-Nenhum teste automatizado neste repositório.
+- **Ordem das regras = política**: o arquivo YAML é avaliado de cima para baixo; mover uma linha muda o que a VPC aceita.
+- **Firewall stateful**: o retorno de uma conexão legítima é tratado pelas regras de ida; sem rota de volta o pacote desaparece.
+- **Dados 100% fictícios**: nenhuma nuvem real é acessada (CIDRs de documentação RFC 5737).
+- **Mínimo de dependências**: só PyYAML para manter o laboratório leve e reprodutível.
 
-</details>
+## Limitações conhecidas e roadmap
 
-<details>
-<summary><strong>Posso usar em produção?</strong></summary>
+- Simulação conceitual: não emula latência, perda ou o comportamento real de um provedor de nuvem.
+- Escopo em IPv4; sem suporte a IPv6 ou firewall L7.
+- Os cenários de teste são fixos; adicionar novos exige editar o YAML.
 
-Este é um **projeto de estudo/portfólio**. Revise e endureça (auth, persistência, monitoramento, etc.) antes de usar em produção.
+## Processo de desenvolvimento
 
-</details>
+Projeto individual de Kelvin Oliveira, construído com agentes de IA orquestrados e revisado pelo autor. A modelagem da VPC, o motor de firewall e a revisão são do autor.
 
+## Licença e autor
 
+MIT — Copyright (c) 2026 Kelvin Rebelo de Oliveira.
 
----
-
-## Documentação
-
-- **Código-Fonte** ,  Navegue pelo diretório `src/` para detalhes de implementação
-- **Referência da API** ,  Docstrings inline + type hints
-- **Diagrama de Arquitetura** ,  Veja [architecture.mermaid](docs/architecture.mermaid) (se presente)
-- **Changelog** ,  [CHANGELOG.md](CHANGELOG.md) (se presente)
-- **Contribuindo** ,  [CONTRIBUTING.md](CONTRIBUTING.md) (se presente)
-
-## Licença
-
-[MIT](LICENSE) ,  Kelvin Oliveira
-
----
-
-<div align="center">
-
-**Construído com** · Python 3 + scikit-learn + pandas
-
-**Autor** · [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfolio](https://kelvinoliveiracode.github.io/portfolio/)
-
-</div>
+**Autor**: [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfólio](https://kelvinoliveiracode.github.io/portfolio/)
