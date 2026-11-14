@@ -6,7 +6,7 @@
 
 ## What it is
 
-A **3-tier VPC (Virtual Private Cloud) simulator** with a **stateful firewall**, a management **bastion** and a **path tracer**. `vpcsim` loads a fictitious architecture (defined in YAML), applies firewall rules in declared order, and answers, for each packet of a test scenario, whether it reaches its destination — with the path and the deciding rule. It is a cloud-network/security lab, entirely fictitious, with no real cloud access.
+A **3-tier VPC (Virtual Private Cloud) simulator** with a **stateful firewall**, a management **bastion** and a **path tracer**. `vpcsim` loads a fictitious architecture (defined in YAML), applies firewall rules in declared order, and answers, for each packet of a test scenario, whether it reaches its destination, with the path and the deciding rule. It is a cloud-network/security lab, entirely fictitious, with no real cloud access.
 
 > Note: the previous README described a **credit-card fraud detection** project (copied from another repository) and cited `scikit-learn`/`pandas`, which do not exist here. Corrected.
 
@@ -17,10 +17,10 @@ An educational networking/security lab, working and tested (105 tests).
 ## Features
 
 - **3-tier architecture** (DMZ → application → data) plus management and partner layers, defined in `dados/arquitetura.yaml` with CIDRs and visibility.
-- **Stateful firewall with deterministic order**: 17 rules evaluated top to bottom; the first match decides.
-- **Path tracer**: given a scenario (packet source→destination/port), shows whether traffic passes and why.
+- Stateful firewall with deterministic order: 17 rules evaluated top to bottom; the first match decides.
+- Path tracer: given a scenario (packet source→destination/port), shows whether traffic passes and why.
 - **Least-privilege principle** and **cloud security model** documented in `docs/`.
-- **CLI**: `tracar`, `cenarios`, `regras` and `arq` commands.
+- CLI: `tracar`, `cenarios`, `regras` and `arq` commands.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ Each packet goes through the rule engine (`regras.py` + `firewall.py`), which ap
 
 ## Repository layout
 
-```
+```text
 vpc-3-tier-segura/
 ├── src/vpcsim/
 │   ├── cli.py        # tracar/cenarios/regras/arq commands
@@ -102,10 +102,10 @@ python -m pytest tests/
 
 ## Technical decisions and trade-offs
 
-- **Rule order = policy**: the YAML file is evaluated top to bottom; moving a line changes what the VPC accepts.
-- **Stateful firewall**: the return of a legitimate connection is handled by the inbound rules; with no return route the packet simply disappears.
-- **100% fictitious data**: no real cloud is accessed (RFC 5737 documentation CIDRs).
-- **Minimum dependencies**: only PyYAML to keep the lab light and reproducible.
+- Rule order = policy: the YAML file is evaluated top to bottom; moving a line changes what the VPC accepts.
+- Stateful firewall: the return of a legitimate connection is handled by the inbound rules; with no return route the packet simply disappears.
+- 100% fictitious data: no real cloud is accessed (RFC 5737 documentation CIDRs).
+- Minimum dependencies: only PyYAML to keep the lab light and reproducible.
 
 ## Known limitations and roadmap
 
@@ -119,6 +119,6 @@ An individual project by Kelvin Oliveira, built with orchestrated AI agents and 
 
 ## License and author
 
-MIT — Copyright (c) 2026 Kelvin Rebelo de Oliveira.
+MIT. Copyright (c) 2026 Kelvin Rebelo de Oliveira.
 
 **Author**: [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfolio](https://kelvinoliveiracode.github.io/portfolio/)

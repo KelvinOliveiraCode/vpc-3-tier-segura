@@ -6,7 +6,7 @@
 
 ## O que é
 
-Simulador de **VPC (Virtual Private Cloud) em 3 camadas** com **firewall stateful**, **bastion** de gestão e **tracer de caminho**. O `vpcsim` carrega uma arquitetura fictícia (definida em YAML), aplica regras de firewall na ordem declarada e responde, para cada pacote de um cenário de teste, se ele chega ao destino — com o caminho e a regra que decidiu. É um laboratório de redes/segurança em nuvem, tudo fictício, sem acessar nuvem real.
+Simulador de **VPC (Virtual Private Cloud) em 3 camadas** com **firewall stateful**, **bastion** de gestão e **tracer de caminho**. O `vpcsim` carrega uma arquitetura fictícia (definida em YAML), aplica regras de firewall na ordem declarada e responde, para cada pacote de um cenário de teste, se ele chega ao destino, com o caminho e a regra que decidiu. É um laboratório de redes/segurança em nuvem, tudo fictício, sem acessar nuvem real.
 
 > Nota: o README anterior descrevia um projeto de **detecção de fraude em cartão** (copiado de outro repositório) e citava `scikit-learn`/`pandas`, que não existem aqui. Corrigido.
 
@@ -17,10 +17,10 @@ Laboratório educacional de redes/segurança, funcional e testado (105 testes).
 ## Funcionalidades
 
 - **Arquitetura em 3 camadas** (DMZ → aplicação → dados) mais gerência e parceiro, definida em `dados/arquitetura.yaml` com CIDRs e visibilidade.
-- **Firewall stateful com ordem determinística**: 17 regras avaliadas de cima para baixo; a primeira que casa decide.
-- **Tracer de caminho**: dado um cenário (pacote origem→destino/porta), mostra se o tráfego passa e por quê.
+- Firewall stateful com ordem determinística: 17 regras avaliadas de cima para baixo; a primeira que casa decide.
+- Tracer de caminho: dado um cenário (pacote origem→destino/porta), mostra se o tráfego passa e por quê.
 - **Princípio do menor privilégio** e **modelo de segurança em nuvem** documentados em `docs/`.
-- **CLI**: comandos `tracar`, `cenarios`, `regras` e `arq`.
+- CLI: comandos `tracar`, `cenarios`, `regras` e `arq`.
 
 ## Arquitetura
 
@@ -46,7 +46,7 @@ Cada pacote atravessa o motor de regras (`regras.py` + `firewall.py`), que aplic
 
 ## Estrutura do repositório
 
-```
+```text
 vpc-3-tier-segura/
 ├── src/vpcsim/
 │   ├── cli.py        # comandos tracar/cenarios/regras/arq
@@ -102,10 +102,10 @@ python -m pytest tests/
 
 ## Decisões técnicas e trade-offs
 
-- **Ordem das regras = política**: o arquivo YAML é avaliado de cima para baixo; mover uma linha muda o que a VPC aceita.
-- **Firewall stateful**: o retorno de uma conexão legítima é tratado pelas regras de ida; sem rota de volta o pacote desaparece.
-- **Dados 100% fictícios**: nenhuma nuvem real é acessada (CIDRs de documentação RFC 5737).
-- **Mínimo de dependências**: só PyYAML para manter o laboratório leve e reprodutível.
+- Ordem das regras = política: o arquivo YAML é avaliado de cima para baixo; mover uma linha muda o que a VPC aceita.
+- Firewall stateful: o retorno de uma conexão legítima é tratado pelas regras de ida; sem rota de volta o pacote desaparece.
+- Dados 100% fictícios: nenhuma nuvem real é acessada (CIDRs de documentação RFC 5737).
+- Mínimo de dependências: só PyYAML para manter o laboratório leve e reprodutível.
 
 ## Limitações conhecidas e roadmap
 
@@ -119,6 +119,6 @@ Projeto individual de Kelvin Oliveira, construído com agentes de IA orquestrado
 
 ## Licença e autor
 
-MIT — Copyright (c) 2026 Kelvin Rebelo de Oliveira.
+MIT. Copyright (c) 2026 Kelvin Rebelo de Oliveira.
 
 **Autor**: [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfólio](https://kelvinoliveiracode.github.io/portfolio/)
